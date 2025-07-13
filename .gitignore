@@ -1,0 +1,6 @@
+# Ignora archivos de entorno y dependencias
+.env
+node_modules/
+.env.*
+.DS_Store
+npm-debug.log 
