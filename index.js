@@ -1,82 +1,90 @@
 // Carga las variables de entorno desde el archivo .env al inicio de todo.
 require('dotenv').config();
 
+// ===================================================================================
+// IMPORTACIONES
+// ===================================================================================
 const TelegramBot = require('node-telegram-bot-api');
 const fetch = require('node-fetch');
 const fs = require('fs').promises; // Usamos fs.promises para código asíncrono limpio
-const path = require('path'); // Para construir rutas de archivo de forma segura
+const path = require('path');     // Para construir rutas de archivo de forma segura
 
 // ===================================================================================
 // CONFIGURACIÓN DE SECRETOS (Leídos desde el archivo .env)
 // ===================================================================================
-
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
-const GASTI_INITIAL_REFRESH_TOKEN = process.env.GASTI_REFRESH_TOKEN; // Renombrado para claridad
-const GASTI_API_URL = process.env.GASTI_API_URL || 'https://TU_API_GASTI_URL';
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://TU_SUPABASE_URL';
-const SUPABASE_APIKEY = process.env.SUPABASE_APIKEY || 'TU_SUPABASE_APIKEY_PUBLICA';
-const GASTI_USER_EMAIL = process.env.GASTI_USER_EMAIL || 'usuario@email.com';
-const GASTI_USER_ID = process.env.GASTI_USER_ID || 'user-id-generico';
+const GASTI_INITIAL_REFRESH_TOKEN = process.env.GASTI_REFRESH_TOKEN; // El token para el primer arranque
+const GASTI_API_URL = process.env.GASTI_API_URL || 'https://api.gasti.pro';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://db.gasti.pro';
+const SUPABASE_APIKEY = process.env.SUPABASE_APIKEY;
+const GASTI_USER_EMAIL = process.env.GASTI_USER_EMAIL;
+const GASTI_USER_ID = process.env.GASTI_USER_ID;
 
-if (!TELEGRAM_TOKEN || !DEEPSEEK_API_KEY || !GASTI_INITIAL_REFRESH_TOKEN) {
-    console.error("FATAL ERROR: Faltan variables de entorno. Asegúrate de que TELEGRAM_BOT_TOKEN, DEEPSEEK_API_KEY y GASTI_REFRESH_TOKEN están en el archivo .env.");
+if (!TELEGRAM_TOKEN || !DEEPSEEK_API_KEY || !GASTI_INITIAL_REFRESH_TOKEN || !SUPABASE_APIKEY) {
+    console.error("FATAL ERROR: Faltan variables de entorno. Asegúrate de que todas las claves están en el archivo .env o en las variables de entorno de Railway.");
     process.exit(1);
 }
 
-// Ruta al archivo que almacenará el token de Gasti de forma persistente.
-const TOKEN_FILE_PATH = path.join(__dirname, 'gasti_token.json');
+// ===================================================================================
+// LÓGICA DE ALMACENAMIENTO PERSISTENTE (CLAVE PARA RAILWAY)
+// ===================================================================================
 
-// ===================================================================================
-// PARTE 1: LÓGICA DE LA API DE GASTI.PRO (MODIFICADA PARA SER ROBUSTA)
-// ===================================================================================
+// Se define la carpeta de datos. Si detecta que está en Railway, usa el volumen montado en /data.
+// Si no, crea una carpeta llamada 'local_data' para pruebas en tu computadora.
+const DATA_DIR = process.env.RAILWAY_ENVIRONMENT ? '/data' : path.join(__dirname, 'local_data');
+const TOKEN_FILE_PATH = path.join(DATA_DIR, 'gasti_token.json');
 
 /**
- * Lee el refresh_token desde el archivo local.
- * Si el archivo no existe, usa el token inicial del archivo .env.
+ * Lee el refresh_token desde el archivo local persistente.
+ * Si el archivo no existe, usa el token inicial del archivo .env (solo para el primer arranque).
  */
 async function readRefreshToken() {
     try {
+        await fs.access(TOKEN_FILE_PATH); // Verifica si el archivo existe
         const data = await fs.readFile(TOKEN_FILE_PATH, 'utf-8');
         const tokenData = JSON.parse(data);
-        console.log("Refresh token leído desde el archivo gasti_token.json.");
+        console.log("Refresh token leído desde el almacenamiento persistente:", TOKEN_FILE_PATH);
         return tokenData.refreshToken;
     } catch (error) {
-        if (error.code === 'ENOENT') {
-            console.log("Archivo de token no encontrado. Usando el token inicial de .env.");
-            return GASTI_INITIAL_REFRESH_TOKEN;
-        }
-        console.error("Error al leer el archivo de token:", error);
-        return GASTI_INITIAL_REFRESH_TOKEN; // Fallback
+        console.log("Archivo de token no encontrado. Usando el token inicial de las variables de entorno.");
+        return GASTI_INITIAL_REFRESH_TOKEN;
     }
 }
 
 /**
  * Escribe el nuevo refresh_token en el archivo local para persistencia.
+ * Se asegura de que el directorio exista antes de escribir.
  */
 async function writeRefreshToken(newToken) {
     try {
+        // Asegura que el directorio (/data en Railway, local_data en local) exista.
+        await fs.mkdir(path.dirname(TOKEN_FILE_PATH), { recursive: true });
+        
         const tokenData = { refreshToken: newToken, lastUpdated: new Date().toISOString() };
         await fs.writeFile(TOKEN_FILE_PATH, JSON.stringify(tokenData, null, 2), 'utf-8');
-        console.log("Nuevo refresh token guardado exitosamente en gasti_token.json.");
+        console.log("Nuevo refresh token guardado exitosamente en:", TOKEN_FILE_PATH);
     } catch (error) {
         console.error("Error fatal: No se pudo escribir el nuevo refresh token en el archivo:", error);
     }
 }
 
 
+// ===================================================================================
+// PARTE 1: LÓGICA DE LA API DE GASTI.PRO
+// ===================================================================================
+
 /**
  * Solicita un nuevo token de acceso a Supabase.
- * AHORA DEVUELVE un objeto con el accessToken y el nuevo newRefreshToken.
+ * Devuelve un objeto con el accessToken y el nuevo newRefreshToken para manejar la rotación.
  */
 async function getNewAccessToken(refreshToken) {
     console.log('Solicitando un nuevo token de acceso para Gasti.pro...');
     const url = `${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`;
-    const apiKeyPublica = SUPABASE_APIKEY;
     try {
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'apikey': apiKeyPublica, 'Content-Type': 'application/json' },
+            headers: { 'apikey': SUPABASE_APIKEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({ refresh_token: refreshToken })
         });
 
@@ -87,7 +95,6 @@ async function getNewAccessToken(refreshToken) {
         }
 
         const data = await response.json();
-        // Devolvemos ambos tokens para manejar la rotación
         return {
             accessToken: data.access_token,
             newRefreshToken: data.refresh_token
@@ -101,7 +108,6 @@ async function getNewAccessToken(refreshToken) {
 async function sendTransaction(accessToken, expenseData) {
     console.log('Enviando transacción a Gasti.pro:', expenseData);
     const url = `${GASTI_API_URL}/rest/v1/transactions?select=*`;
-    const apiKeyPublica = SUPABASE_APIKEY;
 
     const transactionPayload = {
         description: expenseData.description,
@@ -116,7 +122,7 @@ async function sendTransaction(accessToken, expenseData) {
     try {
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'apikey': apiKeyPublica, 'Authorization': `Bearer ${accessToken}`, 'Prefer': 'return=representation' },
+            headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_APIKEY, 'Authorization': `Bearer ${accessToken}`, 'Prefer': 'return=representation' },
             body: JSON.stringify(transactionPayload)
         });
         if (!response.ok) {
@@ -182,8 +188,9 @@ async function parseExpenseWithAI(text) {
     } catch (error) { console.error("Error fatal al procesar con DeepSeek:", error); return null; }
 }
 
+
 // ===================================================================================
-// PARTE 3: LÓGICA PRINCIPAL DEL BOT DE TELEGRAM (MODIFICADA PARA SER ROBUSTA)
+// PARTE 3: LÓGICA PRINCIPAL DEL BOT DE TELEGRAM
 // ===================================================================================
 
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
@@ -205,14 +212,14 @@ bot.on('message', async (msg) => {
     try {
         const expense = await parseExpenseWithAI(text);
         
-        bot.editMessageText(`Análisis completado.`, { chat_id: chatId, message_id: thinkingMessage.message_id });
+        await bot.editMessageText(`Análisis completado.`, { chat_id: chatId, message_id: thinkingMessage.message_id });
 
         if (!expense || !expense.amount || !expense.description) {
-            bot.sendMessage(chatId, "😕 No pude entender los detalles de ese gasto. ¿Podrías intentarlo de nuevo con otro formato?");
+            await bot.sendMessage(chatId, "😕 No pude entender los detalles de ese gasto. ¿Podrías intentarlo de nuevo con otro formato?");
             return;
         }
 
-        bot.sendMessage(chatId, `✅ ¡Entendido! Registrando en Gasti.pro:\n\n📝 **Descripción:** ${expense.description}\n💰 **Monto:** ${expense.amount} ${(expense.currency || 'USD').toUpperCase()}\n🏷️ **Categoría:** ${expense.category}`);
+        await bot.sendMessage(chatId, `✅ ¡Entendido! Registrando en Gasti.pro:\n\n📝 **Descripción:** ${expense.description}\n💰 **Monto:** ${expense.amount} ${(expense.currency || 'USD').toUpperCase()}\n🏷️ **Categoría:** ${expense.category}`);
 
         // --- INICIO DE LA LÓGICA DE TOKEN ROBUSTA ---
 
@@ -223,7 +230,7 @@ bot.on('message', async (msg) => {
             throw new Error("Fallo al obtener token de Gasti.pro. Verifica las credenciales y la conexión.");
         }
 
-        // Si recibimos un nuevo refresh token de la API, lo guardamos para la próxima vez.
+        // Si la API nos dio un nuevo refresh token (por la rotación), lo guardamos para el futuro.
         if (tokenData.newRefreshToken && tokenData.newRefreshToken !== currentRefreshToken) {
             await writeRefreshToken(tokenData.newRefreshToken);
         }
@@ -235,14 +242,10 @@ bot.on('message', async (msg) => {
 
         // --- FIN DE LA LÓGICA DE TOKEN ROBUSTA ---
 
-        bot.sendMessage(chatId, "🎉 ¡Gasto registrado con éxito!");
+        await bot.sendMessage(chatId, "🎉 ¡Gasto registrado con éxito!");
 
     } catch (error) {
         console.error("Error en el flujo principal:", error);
-        // Si el mensaje de "pensando" todavía existe, lo actualizamos.
-        if (thinkingMessage) {
-            bot.editMessageText("🔥 ¡Ups! Hubo un error en mi sistema.", { chat_id: chatId, message_id: thinkingMessage.message_id });
-        }
-        bot.sendMessage(chatId, "No pude registrar el gasto. Por favor, revisa la consola del servidor para más detalles.");
+        await bot.sendMessage(chatId, "🔥 ¡Ups! Hubo un error en mi sistema y no pude registrar el gasto. Revisa los logs del servidor.");
     }
 });
