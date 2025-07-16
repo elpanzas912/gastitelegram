@@ -50,8 +50,24 @@ function formatApiResponse(apiResponse) {
  * @throws {Error} Si la petición a la API falla.
  */
 async function getMonthlyExpenses(accessToken, apiUrl, apiKey) {
-    const rpcUrl = `${apiUrl}/rest/v1/rpc/get_transactions_summary`;
+    const rpcUrl = `${apiUrl}/rest/v1/rpc/get_user_transactions_by_period`;
     console.log(`Obteniendo resumen de gastos desde: ${rpcUrl}`);
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const hours = String(today.getHours()).padStart(2, '0');
+    const minutes = String(today.getMinutes()).padStart(2, '0');
+    const seconds = String(today.getSeconds()).padStart(2, '0');
+
+    const dateTo = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}Z`;
+    const dateFrom = `2025-01-01T00:00:00Z`;
+
+    const requestBody = {
+        date_from: dateFrom,
+        date_to: dateTo
+    };
 
     const response = await fetch(rpcUrl, {
         method: 'POST',
@@ -60,14 +76,13 @@ async function getMonthlyExpenses(accessToken, apiUrl, apiKey) {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({})
+        body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
         const errorBody = await response.text();
-        // Creamos un error detallado que será capturado por el manejador principal
         const detailedError = `Error al llamar a la RPC de Gasti.pro. Status: ${response.status}. Body: ${errorBody}`;
-        console.error(detailedError); // Lo logueamos aquí también por si acaso
+        console.error(detailedError);
         throw new Error(detailedError);
     }
 
