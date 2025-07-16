@@ -50,7 +50,7 @@ function formatApiResponse(apiResponse) {
  * @throws {Error} Si la petición a la API falla.
  */
 async function getMonthlyExpenses(accessToken, apiUrl, apiKey) {
-    const rpcUrl = `${apiUrl}/rest/v1/rpc/get_monthly_summary`;
+    const rpcUrl = `${apiUrl}/rest/v1/rpc/get_transactions_summary`;
     console.log(`Obteniendo resumen de gastos desde: ${rpcUrl}`);
 
     const response = await fetch(rpcUrl, {
