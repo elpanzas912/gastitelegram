@@ -41,7 +41,7 @@ function analizarTransacciones(transacciones) {
         } else if (gasto.currency === 'ARS') {
             totalGastosARS += monto;
             gastosARS.push(gasto);
-        }
+        } 
     });
 
     let totalIngresosUSD = 0, totalIngresosARS = 0;
@@ -60,32 +60,18 @@ function analizarTransacciones(transacciones) {
     const balanceNetoUSD = totalIngresosUSD - totalGastosUSD;
     const balanceNetoARS = totalIngresosARS - totalGastosARS;
 
-    let resumen = "=== RESUMEN FINANCIERO ===
-";
-    resumen += `Total gastado en USD: ${totalGastosUSD.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-`;
-    resumen += `Total ingresos en USD: ${totalIngresosUSD.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-`;
-    resumen += `Balance neto en USD: ${balanceNetoUSD.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+    let resumen = `=== RESUMEN FINANCIERO ===\n`;
+    resumen += `Total gastado en USD: ${totalGastosUSD.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+    resumen += `Total ingresos en USD: ${totalIngresosUSD.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+    resumen += `Balance neto en USD: ${balanceNetoUSD.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n\n`;
+    resumen += `Total gastado en ARS: ${totalGastosARS.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+    resumen += `Total ingresos en ARS: ${totalIngresosARS.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+    resumen += `Balance neto en ARS: ${balanceNetoARS.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n\n`;
 
-`;
-    resumen += `Total gastado en ARS: ${totalGastosARS.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-`;
-    resumen += `Total ingresos en ARS: ${totalIngresosARS.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-`;
-    resumen += `Balance neto en ARS: ${balanceNetoARS.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-
-`;
-
-    resumen += "=== ESTADÍSTICAS ADICIONALES ===
-";
-    resumen += `Número total de transacciones: ${transacciones.length}
-`;
-    resumen += `Transacciones de gasto: ${gastos.length}
-`;
-    resumen += `Transacciones de ingreso: ${ingresos.length}
-
-`;
+    resumen += `=== ESTADÍSTICAS ADICIONALES ===\n`;
+    resumen += `Número total de transacciones: ${transacciones.length}\n`;
+    resumen += `Transacciones de gasto: ${gastos.length}\n`;
+    resumen += `Transacciones de ingreso: ${ingresos.length}\n\n`;
 
     const getTopCategorias = (listaGastos) => {
         const categorias = {};
@@ -99,22 +85,17 @@ function analizarTransacciones(transacciones) {
 
     const topCategoriasUSD = getTopCategorias(gastosUSD);
     if (topCategoriasUSD.length > 0) {
-        resumen += "=== TOP 5 CATEGORÍAS DE GASTO EN USD ===
-";
+        resumen += `=== TOP 5 CATEGORÍAS DE GASTO EN USD ===\n`;
         topCategoriasUSD.forEach(([categoria, monto]) => {
-            resumen += `${categoria}: ${monto.toFixed(2)}
-`;
+            resumen += `${categoria}: ${monto.toFixed(2)}\n`;
         });
     }
 
     const topCategoriasARS = getTopCategorias(gastosARS);
     if (topCategoriasARS.length > 0) {
-        resumen += "
-=== TOP 5 CATEGORÍAS DE GASTO EN ARS ===
-";
+        resumen += `\n=== TOP 5 CATEGORÍAS DE GASTO EN ARS ===\n`;
         topCategoriasARS.forEach(([categoria, monto]) => {
-            resumen += `${categoria}: ${monto.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-`;
+            resumen += `${categoria}: ${monto.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
         });
     }
     
