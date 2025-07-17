@@ -1,0 +1,5 @@
+fix(resumen): Corrige SyntaxError en la construcción del resumen
+
+Se soluciona un `SyntaxError` causado por el uso incorrecto de comillas dobles en un string multilínea dentro de la función `analizarTransacciones`.
+
+Se reemplazaron las comillas dobles por template literals (backticks) para permitir la construcción de strings multilínea de forma correcta, asegurando que el script se ejecute sin errores de sintaxis.
