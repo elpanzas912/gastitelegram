@@ -23,7 +23,9 @@ function formatApiResponse(apiResponse) {
 
     message += "*Últimos gastos registrados:*\n\n";
 
-    transactions.slice(0, 10).forEach(tx => {
+    const sortedTransactions = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    sortedTransactions.slice(0, 10).forEach(tx => {
         const date = new Date(tx.date).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
         const amount = Math.abs(tx.amount).toLocaleString('es-AR');
         const currency = tx.currency;
