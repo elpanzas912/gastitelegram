@@ -148,7 +148,7 @@ async function parseExpenseWithAI(text) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DEEPSEEK_API_KEY}` },
             body: JSON.stringify({
-                model: "deepseek-chat",
+                model: "deepseek-reasoner",
                 messages: [{ "role": "system", "content": SYSTEM_PROMPT }, { "role": "user", "content": text }],
                 temperature: 0,
                 stream: false

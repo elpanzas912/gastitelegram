@@ -194,7 +194,7 @@ async function analyzeDataWithAI(dataSummary, deepseekApiKey) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
         body: JSON.stringify({
-            model: "deepseek-chat",
+            model: "deepseek-reasoner",
             messages: [
                 { "role": "system", "content": SYSTEM_PROMPT_RESUMEN },
                 { "role": "user", "content": dataSummary }
