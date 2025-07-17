@@ -9,6 +9,7 @@ const fetch = require('node-fetch');
 const fs = require('fs').promises; // Usamos fs.promises para código asíncrono limpio
 const path = require('path');     // Para construir rutas de archivo de forma segura
 const { handleGastosCommand } = require('./gastitelegram/gastos');
+const { handleResumenCommand } = require('./gastitelegram/resumen');
 
 // ===================================================================================
 // CONFIGURACIÓN DE SECRETOS (Leídos desde el archivo .env)
@@ -195,6 +196,17 @@ bot.on('message', async (msg) => {
             };
             // Llamamos a la lógica del comando /gastos
             await handleGastosCommand(bot, msg, getNewAccessToken, config);
+
+        } else if (text.startsWith('/resumen')) {
+            console.log(`[${chatId}] Comando /resumen recibido.`);
+            const config = {
+                readRefreshToken,
+                writeRefreshToken,
+                GASTI_API_URL,
+                SUPABASE_APIKEY,
+                DEEPSEEK_API_KEY
+            };
+            await handleResumenCommand(bot, msg, getNewAccessToken, config);
 
         } else {
             // Si no es un comando, es un gasto para procesar
