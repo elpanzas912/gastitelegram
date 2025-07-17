@@ -1,47 +1,126 @@
 const fetch = require('node-fetch');
 
 const SYSTEM_PROMPT_RESUMEN = `
-Eres un analista financiero experto. Tu tarea es analizar una lista de transacciones de gastos y proporcionar un resumen detallado y perspicaz. Tu análisis debe incluir:
+Eres un analista financiero y asesor personal. Tu tarea es tomar un resumen de datos financieros y convertirlo en un informe narrativo, amigable y fácil de entender.
 
-1.  **Resumen General:** Una visión concisa de los patrones de gasto.
-2.  **Gasto Total por Moneda:** Desglosa el gasto total en cada moneda (ej. ARS, USD).
-3.  **Categorías Principales:** Identifica las 3-5 categorías donde el usuario gasta más dinero.
-4.  **Gastos Excesivos/Innecesarios:** Señala posibles áreas donde el gasto podría ser considerado excesivo o no esencial, justificando brevemente por qué.
-5.  **Oportunidades de Ahorro:** Ofrece consejos prácticos y específicos sobre cómo el usuario puede reducir gastos en ciertas categorías o en general.
-6.  **Tendencias:** Si hay suficientes datos, menciona cualquier tendencia interesante (ej. aumento/disminución en ciertas categorías, gastos estacionales).
+**Instrucciones:**
+1.  **Visión General:** Comienza con un párrafo corto que resuma la salud financiera general del usuario basándote en los balances netos. Sé alentador pero honesto.
+2.  **Análisis de Gastos:** Comenta sobre los gastos totales en cada moneda. Luego, analiza las "Top 5 Categorías" de gasto. Señala dónde se está yendo la mayor parte del dinero y si alguna categoría parece particularmente alta.
+3.  **Análisis de Ingresos:** Si hay datos de ingresos, coméntalos. Menciona las fuentes de ingresos y cómo se comparan con los gastos.
+4.  **Consejos Prácticos y Oportunidades de Ahorro:** Esta es la parte más importante. Basándote en las categorías de gasto principales, ofrece de 2 a 4 consejos específicos, prácticos y accionables para que el usuario pueda reducir gastos. Por ejemplo, si "🍽️ Comida" es alto, sugiere planificar comidas o cocinar más en casa. Si "📱 Subscripciones" es alto, sugiere revisar los servicios que realmente usa.
+5.  **Balance Final:** Termina con una nota positiva, resumiendo el balance neto y animando al usuario a seguir llevando un control de sus finanzas.
 
-Formato de las transacciones que recibirás:
-- Fecha (YYYY-MM-DD), Descripción, Monto, Moneda, Categoría
+**Tono:**
+- Empático, constructivo y alentador.
+- Evita el lenguaje técnico complejo.
+- Utiliza Markdown (negritas, listas) para que el texto sea fácil de leer.
 
-Ejemplo de formato de salida:
-
---- Resumen Financiero ---
-
-**Visión General:**
-[Tu resumen conciso aquí]
-
-**Gasto Total por Moneda:**
-- ARS: [Monto Total en ARS]
-- USD: [Monto Total en USD]
-
-**Top Categorías de Gasto:**
-- [Categoría 1]: [Monto Total] [Moneda]
-- [Categoría 2]: [Monto Total] [Moneda]
-...
-
-**Áreas de Gasto Excesivo:**
-- [Categoría/Descripción]: [Justificación y Monto]
-
-**Consejos para Ahorrar:**
-- [Consejo 1]
-- [Consejo 2]
-...
-
-**Tendencias Observadas:**
-- [Tendencia 1]
-
-Tu respuesta debe ser clara, concisa y fácil de entender para un usuario no financiero. Utiliza un lenguaje alentador y constructivo. No incluyas ninguna introducción o despedida, solo el resumen. Si no hay transacciones, indica que no hay datos para analizar.
+**IMPORTANTE:** No inventes datos. Basa tu análisis estrictamente en el resumen de texto que te proporciono. No incluyas ninguna introducción o despedida, solo el informe.
 `;
+
+/**
+ * Procesa las transacciones para generar un resumen numérico y estadístico.
+ * @param {Array<object>} transacciones - El array de transacciones desde la API.
+ * @returns {string} - Un string formateado con el resumen de datos.
+ */
+function analizarTransacciones(transacciones) {
+    if (!transacciones || transacciones.length === 0) {
+        return "No se encontraron transacciones para analizar.";
+    }
+
+    const gastos = transacciones.filter(t => t.type === 'expense');
+    const ingresos = transacciones.filter(t => t.type === 'income');
+
+    let totalGastosUSD = 0, totalGastosARS = 0;
+    let gastosUSD = [], gastosARS = [];
+    gastos.forEach(gasto => {
+        const monto = Math.abs(parseFloat(gasto.amount)) || 0;
+        if (gasto.currency === 'USD') {
+            totalGastosUSD += monto;
+            gastosUSD.push(gasto);
+        } else if (gasto.currency === 'ARS') {
+            totalGastosARS += monto;
+            gastosARS.push(gasto);
+        }
+    });
+
+    let totalIngresosUSD = 0, totalIngresosARS = 0;
+    let ingresosUSD = [], ingresosARS = [];
+    ingresos.forEach(ingreso => {
+        const monto = parseFloat(ingreso.amount) || 0;
+        if (ingreso.currency === 'USD') {
+            totalIngresosUSD += monto;
+            ingresosUSD.push(ingreso);
+        } else if (ingreso.currency === 'ARS') {
+            totalIngresosARS += monto;
+            ingresosARS.push(ingreso);
+        }
+    });
+
+    const balanceNetoUSD = totalIngresosUSD - totalGastosUSD;
+    const balanceNetoARS = totalIngresosARS - totalGastosARS;
+
+    let resumen = "=== RESUMEN FINANCIERO ===
+";
+    resumen += `Total gastado en USD: ${totalGastosUSD.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+`;
+    resumen += `Total ingresos en USD: ${totalIngresosUSD.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+`;
+    resumen += `Balance neto en USD: ${balanceNetoUSD.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+
+`;
+    resumen += `Total gastado en ARS: ${totalGastosARS.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+`;
+    resumen += `Total ingresos en ARS: ${totalIngresosARS.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+`;
+    resumen += `Balance neto en ARS: ${balanceNetoARS.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+
+`;
+
+    resumen += "=== ESTADÍSTICAS ADICIONALES ===
+";
+    resumen += `Número total de transacciones: ${transacciones.length}
+`;
+    resumen += `Transacciones de gasto: ${gastos.length}
+`;
+    resumen += `Transacciones de ingreso: ${ingresos.length}
+
+`;
+
+    const getTopCategorias = (listaGastos) => {
+        const categorias = {};
+        listaGastos.forEach(gasto => {
+            const categoria = gasto.category || "Sin Categoría";
+            const monto = Math.abs(parseFloat(gasto.amount)) || 0;
+            categorias[categoria] = (categorias[categoria] || 0) + monto;
+        });
+        return Object.entries(categorias).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    };
+
+    const topCategoriasUSD = getTopCategorias(gastosUSD);
+    if (topCategoriasUSD.length > 0) {
+        resumen += "=== TOP 5 CATEGORÍAS DE GASTO EN USD ===
+";
+        topCategoriasUSD.forEach(([categoria, monto]) => {
+            resumen += `${categoria}: ${monto.toFixed(2)}
+`;
+        });
+    }
+
+    const topCategoriasARS = getTopCategorias(gastosARS);
+    if (topCategoriasARS.length > 0) {
+        resumen += "
+=== TOP 5 CATEGORÍAS DE GASTO EN ARS ===
+";
+        topCategoriasARS.forEach(([categoria, monto]) => {
+            resumen += `${categoria}: ${monto.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+`;
+        });
+    }
+    
+    return resumen;
+}
+
 
 /**
  * Obtiene todas las transacciones de un usuario desde la API de Gasti.pro.
@@ -63,9 +142,8 @@ async function getAllTransactions(accessToken, apiUrl, apiKey) {
     const minutes = String(today.getMinutes()).padStart(2, '0');
     const seconds = String(today.getSeconds()).padStart(2, '0');
 
-    // Establecemos un rango muy amplio para intentar obtener todas las transacciones
     const dateTo = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}Z`;
-    const dateFrom = `2020-01-01T00:00:00Z`; // Desde el 1 de enero de 2020
+    const dateFrom = `2020-01-01T00:00:00Z`; 
 
     const requestBody = {
         date_from: dateFrom,
@@ -90,45 +168,38 @@ async function getAllTransactions(accessToken, apiUrl, apiKey) {
     }
 
     const data = await response.json();
-    return data.transactions || []; // Aseguramos que siempre devolvemos un array
+    // Aseguramos que 'type' y 'amount' existan y sean correctos
+    return (data.transactions || []).map(tx => ({
+        ...tx,
+        type: tx.amount < 0 ? 'expense' : 'income',
+        amount: parseFloat(tx.amount) || 0
+    }));
 }
 
 /**
- * Analiza las transacciones con DeepSeek AI.
- * @param {Array<object>} transactions - Array de objetos de transacción.
+ * Envía el resumen de datos a DeepSeek AI para que genere un informe narrativo.
+ * @param {string} dataSummary - El resumen de datos generado por `analizarTransacciones`.
  * @param {string} deepseekApiKey - La API Key de DeepSeek.
- * @returns {string} - El resumen generado por la IA.
+ * @returns {string} - El informe narrativo generado por la IA.
  * @throws {Error} Si la llamada a la API de DeepSeek falla.
  */
-async function analyzeExpensesWithAI(transactions, deepseekApiKey) {
-    if (transactions.length === 0) {
-        return "No hay transacciones para analizar. Registra algunos gastos primero.";
+async function analyzeDataWithAI(dataSummary, deepseekApiKey) {
+    if (!dataSummary || dataSummary.startsWith("No se encontraron")) {
+        return dataSummary;
     }
 
-    // Formatear las transacciones para el prompt de la IA
-    const formattedTransactions = transactions.map(tx => {
-        const date = new Date(tx.date).toISOString().split('T')[0];
-        const description = tx.description.replace(/\n/g, ' '); // Eliminar saltos de línea en descripción
-        const amount = Math.abs(tx.amount);
-        const currency = tx.currency;
-        const category = tx.category || 'Sin categoría';
-        return `${date}, ${description}, ${amount}, ${currency}, ${category}`;
-    }).join('\n');
-
-    const userPrompt = `Aquí están mis transacciones de gastos:\n\n${formattedTransactions}\n\nPor favor, genera el resumen financiero detallado siguiendo las instrucciones que te di.`;
-
-    console.log("Enviando transacciones a DeepSeek para análisis...");
+    console.log("Enviando resumen de datos a DeepSeek para análisis narrativo...");
 
     const response = await fetch("https://api.deepseek.com/chat/completions", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
         body: JSON.stringify({
-            model: "deepseek-chat", // Usamos el modelo deepseek-chat como en index.js
+            model: "deepseek-chat",
             messages: [
                 { "role": "system", "content": SYSTEM_PROMPT_RESUMEN },
-                { "role": "user", "content": userPrompt }
+                { "role": "user", "content": dataSummary }
             ],
-            temperature: 0.7, // Un poco más de creatividad para el resumen
+            temperature: 0.7,
             stream: false
         })
     });
@@ -153,7 +224,7 @@ async function analyzeExpensesWithAI(transactions, deepseekApiKey) {
  */
 async function handleResumenCommand(bot, msg, getNewAccessToken, config) {
     const chatId = msg.chat.id;
-    const thinkingMessage = await bot.sendMessage(chatId, "🧠 Analizando tus gastos con IA... Esto puede tardar un momento.");
+    const thinkingMessage = await bot.sendMessage(chatId, "🔍 Recopilando datos... Un momento.");
 
     try {
         const currentRefreshToken = await config.readRefreshToken();
@@ -172,13 +243,19 @@ async function handleResumenCommand(bot, msg, getNewAccessToken, config) {
             config.GASTI_API_URL,
             config.SUPABASE_APIKEY
         );
+        
+        await bot.editMessageText("⚙️ Procesando y calculando totales...", { chat_id: chatId, message_id: thinkingMessage.message_id });
 
-        const aiSummary = await analyzeExpensesWithAI(allTransactions, config.DEEPSEEK_API_KEY);
+        const dataSummary = analizarTransacciones(allTransactions);
+        
+        await bot.editMessageText("🧠 Generando análisis y consejos con IA...", { chat_id: chatId, message_id: thinkingMessage.message_id });
+
+        const aiSummary = await analyzeDataWithAI(dataSummary, config.DEEPSEEK_API_KEY);
 
         await bot.editMessageText(aiSummary, {
             chat_id: chatId,
             message_id: thinkingMessage.message_id,
-            parse_mode: 'Markdown' // Asumimos que la IA devolverá Markdown
+            parse_mode: 'Markdown'
         });
 
     } catch (error) {
@@ -187,7 +264,7 @@ async function handleResumenCommand(bot, msg, getNewAccessToken, config) {
             "🔥 ¡Ups! Hubo un error al generar el resumen. Revisa los logs del servidor.",
             { chat_id: chatId, message_id: thinkingMessage.message_id }
         );
-        throw error; // Relanzar para que el manejador principal lo capture
+        throw error;
     }
 }
 
