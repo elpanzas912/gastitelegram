@@ -10,6 +10,7 @@ const fs = require('fs').promises; // Usamos fs.promises para código asíncrono
 const path = require('path');     // Para construir rutas de archivo de forma segura
 const { handleGastosCommand } = require('./gastitelegram/gastos');
 const { handleResumenCommand } = require('./gastitelegram/resumen');
+const { handleInfoQuery } = require('./gastitelegram/info');
 
 // ===================================================================================
 // CONFIGURACIÓN DE SECRETOS (Leídos desde el archivo .env)
@@ -171,6 +172,9 @@ async function parseExpenseWithAI(text) {
 
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
+// Almacenamiento en memoria para el estado de la conversación
+const userState = {};
+
 // Un único manejador de mensajes para centralizar la lógica
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
@@ -197,6 +201,11 @@ bot.on('message', async (msg) => {
             // Llamamos a la lógica del comando /gastos
             await handleGastosCommand(bot, msg, getNewAccessToken, config);
 
+        } else if (text.startsWith('/info')) {
+            console.log(`[${chatId}] Comando /info recibido.`);
+            await bot.sendMessage(chatId, "Claro, ¿qué te gustaría saber? Puedes preguntarme cosas como:\n- \"Gastos de la última semana\"\n- \"Ingresos de julio\"\n- \"Transacciones de la categoría Comida de este mes\");
+            userState[chatId] = 'awaiting_info_query'; // Marcamos que esperamos la consulta
+
         } else if (text.startsWith('/resumen')) {
             console.log(`[${chatId}] Comando /resumen recibido.`);
             const config = {
@@ -207,6 +216,19 @@ bot.on('message', async (msg) => {
                 DEEPSEEK_API_KEY
             };
             await handleResumenCommand(bot, msg, getNewAccessToken, config);
+
+        } else if (userState[chatId] === 'awaiting_info_query') {
+            // Si el usuario estaba en el flujo de /info, procesamos su consulta
+            console.log(`[${chatId}] Procesando consulta de info: "${text}"`);
+            const config = {
+                readRefreshToken,
+                writeRefreshToken,
+                GASTI_API_URL,
+                SUPABASE_APIKEY,
+                DEEPSEEK_API_KEY
+            };
+            await handleInfoQuery(bot, msg, getNewAccessToken, config);
+            delete userState[chatId]; // Limpiamos el estado
 
         } else {
             // Si no es un comando, es un gasto para procesar
