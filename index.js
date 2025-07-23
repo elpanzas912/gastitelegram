@@ -203,7 +203,10 @@ bot.on('message', async (msg) => {
 
         } else if (text.startsWith('/info')) {
             console.log(`[${chatId}] Comando /info recibido.`);
-            await bot.sendMessage(chatId, "Claro, ¿qué te gustaría saber? Puedes preguntarme cosas como:\n- \"Gastos de la última semana\"\n- \"Ingresos de julio\"\n- \"Transacciones de la categoría Comida de este mes\");
+            await bot.sendMessage(chatId, `Claro, ¿qué te gustaría saber? Puedes preguntarme cosas como:
+- "Gastos de la última semana"
+- "Ingresos de julio"
+- "Transacciones de la categoría Comida de este mes"`);
             userState[chatId] = 'awaiting_info_query'; // Marcamos que esperamos la consulta
 
         } else if (text.startsWith('/resumen')) {
